@@ -5,8 +5,9 @@ Isolated here so the main loop stays free of data-plumbing details,
 and so these functions can be tested independently.
 """
 import time
-from typing import Optional, Tuple
+from datetime import datetime, timezone
 
+from typing import Tuple
 from src.core.types import MarketState, TickData
 from src.core.exceptions import MarketDataUnavailable
 from src.engine.trading_config import TradingConfig
@@ -65,7 +66,7 @@ def build_market_state(
     return MarketState(
         symbol=config.symbol,
         interval=config.timeframe,
-        timestamp=history["timestamp"][idx],
+        timestamp=datetime.fromtimestamp(history["timestamp"][idx], tz=timezone.utc),
         open=history["open"][idx],
         high=history["high"][idx],
         low=history["low"][idx],

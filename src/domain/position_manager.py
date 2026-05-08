@@ -18,10 +18,9 @@ class PositionManager:
         self.datalogger = datalogger or DataLogger()
         
         risk_config = load_yaml("risk.yaml")
-        self.risk_manager = RiskManager(risk_config)
 
-        # Position metadata: ticket → {setup_id, execution_id, trade, mae, mfe}
         self._position_metadata: Dict[Tuple[int, int], Dict] = {}
+        self._failed_closes_queqe: List[Tuple] = []
         
     # ------------------------------------------------------------------
     # Position Queries
@@ -151,7 +150,7 @@ class PositionManager:
     # Exit Handler
     # ------------------------------------------------------------------
 
-    def handle_exit(self, strategy, market_state) -> None:
+    def handle_exit(self, strategy, market_state, risk_manager) -> None:
         """Check and execute exits for open positions."""
         trades = self.get_strategy_positions(
             market_state.symbol,
@@ -164,13 +163,27 @@ class PositionManager:
 
             if strategy.check_exit(trade, market_state):
                 exit_price = market_state.bid
-                log(f"[EXIT SIGNAL] {trade.direction} at {exit_price}", level="SIGNAL")
-
+                log(
+                    f"[EXIT SIGNAL] {trade.direction} at {exit_price}",
+                    level="SIGNAL"
+                )
                 try:
                     result = self.bridge.close_position(pos)
+                    if result is None or result.retcode != mt5.TRADE_RETCODE_DONE:
+                        retcode = result.retcode if result else "NONE"
+                        self._queue_failed_close(
+                            pos,
+                            retries=3,
+                            reason=f"retcode={retcode}"
+                        )
+                        continue
                 except Exception as e:
-                    log(f"Error occurred while closing position: {e}", level="ERROR")
-                    return
+                    self._queue_failed_close(
+                        pos,
+                        retries=3,
+                        reason=str(e)
+                    )
+                    continue
 
                 actual_exit_price = result.price if result and result.retcode == mt5.TRADE_RETCODE_DONE else market_state.bid
 
@@ -202,7 +215,7 @@ class PositionManager:
                 if self.datalogger:
                     self.datalogger.log_trade_result(trade)
 
-                self.risk_manager.update(trade)
+                risk_manager.update(trade)
                 strategy.update_trade_result(trade)
 
                 # Clean up metadata
@@ -260,3 +273,27 @@ class PositionManager:
 
             meta['mae'] = max(meta.get('mae', 0), adverse)
             meta['mfe'] = max(meta.get('mfe', 0), favorable)
+    
+    # ------------------------------------------------------------------
+    # Failed Close Retry Logic
+    # ------------------------------------------------------------------
+    def _queue_failed_close(self, pos, retries: int = 3, reason: str = "") -> None:
+        """Queue failed position close for retry."""
+
+        # Prevent duplicate queue entries
+        already_queued = any(
+            queued_pos.ticket == pos.ticket
+            for queued_pos, _ in self._failed_closes_queqe
+        )
+
+        if already_queued:
+            return
+
+        self._failed_closes_queqe.append((pos, retries))
+
+        log(
+            f"[FAILED CLOSE] ticket={pos.ticket} "
+            f"queued for retry ({retries} attempts left). "
+            f"Reason: {reason}",
+            level="WARNING"
+        )

@@ -98,7 +98,7 @@ def main_loop(strategy_name: str, notifier: LineNotifier) -> None:
 
             # ── Exit check ────────────────────────────────────────────
             current_state = build_market_state(history, tick, _trading_config, use_previous=False)
-            position_manager.handle_exit(strategy, current_state)
+            position_manager.handle_exit(strategy, current_state, risk_manager)
  
             current_has_position = position_manager.has_open_position(
                 _trading_config.symbol, strategy.strategy_id

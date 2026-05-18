@@ -1,4 +1,5 @@
-"""MT5Bridge - Facade for MT5 API interactions with separated concerns."""
+from src.domain.market_data import TickData, History
+from src.domain.trading     import Position, TradeSetup, TradeHistory, TradeExecution
 from src.brokers.mt5_components.connector import ConnectionManager
 from src.brokers.mt5_components.data_fetcher import MarketDataFetcher
 from src.brokers.mt5_components.order_executor import OrderExecutor
@@ -6,66 +7,46 @@ from src.brokers.mt5_components.position_repository import PositionRepository
 
 
 class MT5Bridge:
-    """
-    Facade for MT5 API interactions.
-    
-    Separates concerns into:
-    - ConnectionManager: Connection lifecycle
-    - MarketDataFetcher: Price data retrieval
-    - OrderExecutor: Order execution with retry logic
-    - PositionRepository: Position/deal queries
-    """
 
     def __init__(self, login=None, password=None, server=None):
         """Initialize MT5 Bridge with all components."""
         self.connection = ConnectionManager(login, password, server)
         self.market_data = MarketDataFetcher(self.connection)
-        self.executor = OrderExecutor(self.connection, self.market_data)
+        self.executor = OrderExecutor(self.connection)
         self.positions = PositionRepository(self.connection)
 
         # Expose commonly used connection methods
         self.connected = self.connection.connected
 
     def connect(self) -> bool:
-        """Proxy to ConnectionManager.connect()"""
         return self.connection.connect()
 
     def shutdown(self):
-        """Proxy to ConnectionManager.shutdown()"""
         return self.connection.shutdown()
 
     def ensure_connected(self) -> bool:
-        """Proxy to ConnectionManager.ensure_connected()"""
         return self.connection.ensure_connected()
 
     # Market Data Methods
-    def get_rates(self, symbol: str, timeframe, n: int = 180):
-        """Proxy to MarketDataFetcher.get_rates()"""
+    def get_rates(self, symbol: str, timeframe, n: int = 180) -> History:
         return self.market_data.get_rates(symbol, timeframe, n)
 
-    def get_tick(self, symbol: str):
-        """Proxy to MarketDataFetcher.get_tick()"""
+    def get_tick(self, symbol: str) -> TickData:
         return self.market_data.get_tick(symbol)
 
     def get_spread(self, symbol: str) -> float:
-        """Proxy to MarketDataFetcher.get_spread()"""
         return self.market_data.get_spread(symbol)
 
     # Order Execution Methods
-    def send_order(self, symbol: str, direction: str, volume: float,
-                   magic: int, comment: str = "forward_test", max_retries: int = 3):
-        """Proxy to OrderExecutor.send_order()"""
-        return self.executor.send_order(symbol, direction, volume, magic, comment, max_retries)
+    def send_order(self, setup: TradeSetup, volume: float, magic: int, comment: str = "forward_test", max_retries: int = 3) -> TradeExecution | None:
+        return self.executor.send_order(setup, volume, magic, comment, max_retries)
 
-    def close_position(self, position):
-        """Proxy to OrderExecutor.close_position()"""
+    def close_position(self, position) -> TradeExecution | None:
         return self.executor.close_position(position)
 
     # Position Queries
-    def get_positions(self, symbol: str):
-        """Proxy to PositionRepository.get_positions()"""
+    def get_positions(self, symbol: str) -> Position:
         return self.positions.get_positions(symbol)
 
-    def history_deals_get(self, ticket):
-        """Proxy to PositionRepository.history_deals_get()"""
+    def history_deals_get(self, ticket) -> TradeHistory:
         return self.positions.history_deals_get(ticket)

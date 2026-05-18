@@ -24,31 +24,19 @@ class History:
     tick_volume:    list
     real_volume:    list | None = None
 
+    def __getitem__(self, item):
+        if isinstance(item, str):
+            return getattr(self, item)
+        
+        elif isinstance(item, tuple):
+            key, index = item
+            return getattr(self, key)[index]
+
+        raise TypeError("Invalid key type")
+
 
 @dataclass(frozen=True)
 class MarketSnapshot:
     tick:               TickData
     history:            History | None = None
     is_full_refresh:    bool = False
-
-
-@dataclass(slots=True)
-class MarketState:
-    symbol:     str
-    interval:   str
-    timestamp:  datetime
-    open:       float
-    high:       float
-    low:        float
-    close:      float
-    volume:     float | None
-    bid:        float | None    
-    ask:        float | None
-
-    def __post_init__(self):
-        """Validate market state."""
-        if self.high < self.low:
-            raise ValueError("High must be >= Low")
-        if self.close < 0 or self.open < 0:
-            raise ValueError("Prices must be non-negative")
-

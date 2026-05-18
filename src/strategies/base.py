@@ -1,8 +1,9 @@
 '''src/strategies/base.py'''
 from abc import ABC, abstractmethod
-from typing import Optional, Dict, Any
+from typing import Any
 
-from src.core.types import Signal, MarketState, TradeExecution, TradeResult
+from src.domain.market_data import MarketSnapshot, History
+from src.domain.trading import TradeExecution, TradeResult, Signal
 
 
 class Strategy(ABC):
@@ -17,13 +18,9 @@ class Strategy(ABC):
     @abstractmethod
     def generate_signal(
         self,
-        market_state: MarketState,
-        history: Dict[str, list],
+        snapshot: MarketSnapshot,
         spread: float,
-    ) -> Optional[Signal]:
-        """
-        Return a Signal or None
-        """
+    ) -> Signal | None:
         pass
 
     # -----------------------------
@@ -32,9 +29,8 @@ class Strategy(ABC):
     @abstractmethod
     def check_exit(
         self,
-        trade: TradeExecution,
-        market_state: MarketState,
-        closes: list,
+        trade,
+        market_state: MarketSnapshot,
     ) -> bool:
         """
         Return True if trade should be closed

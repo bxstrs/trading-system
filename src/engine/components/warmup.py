@@ -22,7 +22,7 @@ def warmup_strategy(strategy, history: History) -> None:
             "timestamp": timestamps[: i + 1],
         }
         if hasattr(strategy, "on_new_bar"):
-            strategy.on_new_bar(sub_history)
+            strategy.update_indicators(sub_history)
  
     if timestamps:
         strategy._current_bar_time = timestamps[-1]

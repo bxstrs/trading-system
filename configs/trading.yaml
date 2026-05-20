@@ -1,7 +1,7 @@
 # Trading Configuration
 symbol: "ETHUSD#"
 timeframe: "H4"                 # H1, H4, D1, etc
-timeframe_value: 16388          # mt5.TIMEFRAME_H4 (DO NOT CHANGE unless you know MT5 constants)
+timeframe_value: 5              # mt5.TIMEFRAME_H4 (16388, DO NOT CHANGE unless you know MT5 constants)
 
 # Order Execution
 deviation: 3                    # Slippage tolerance in points

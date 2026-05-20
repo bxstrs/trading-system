@@ -2,12 +2,11 @@
 from typing import List, Tuple, Dict
 from datetime import datetime
 
-from src.domain.enums import Direction, TradeStatus
+from src.domain.enums import Direction
 from src.domain.market_data import TickData
-from src.domain.trading import Position, TradeResult
+from src.domain.trading import Position
 from src.infrastructure.logger.logger import log
 from src.infrastructure.logger.data_logger import DataLogger
-from src.config.loader import load_yaml
 
 
 class PositionManager:

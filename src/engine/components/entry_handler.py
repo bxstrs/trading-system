@@ -51,7 +51,7 @@ def try_entry(
     
     direction_enum = Direction.LONG if signal.direction.name == "LONG" else Direction.SHORT
  
-    log(f"[ENTRY] {signal.direction} at expected price: {signal.entry_price}", level="SIGNAL")
+    log(f"[ENTRY] {signal.direction} at expected price: {signal.entry_price}", level="INFO")
 
     # ── Resolve setup-bar OHLC (history[-2] = the bar that triggered the setup) ──
     history          = snapshot.history

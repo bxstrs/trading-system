@@ -49,5 +49,5 @@ class MT5Bridge:
     def get_positions(self, symbol: str) -> List[Position]:
         return self.positions.get_positions(symbol)
 
-    def history_deals_get(self, ticket) -> TradeHistory:
+    def history_deals_get(self, ticket) -> List[TradeHistory]:
         return self.positions.history_deals_get(ticket)

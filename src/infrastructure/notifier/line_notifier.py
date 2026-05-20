@@ -37,6 +37,10 @@ class LineNotifier:
                 if response.status_code == 200:
                     log(f"LINE Notify success: {message}", level="DEBUG")
                     return True
+                log(
+                    f"LINE Notify HTTP {response.status_code}: {response.text}",
+                    level="WARNING"
+                )
                 
             except requests.Timeout:
                 if attempt < max_retries:
@@ -47,4 +51,9 @@ class LineNotifier:
             except Exception as exc:
                 log(f"LINE Notify request failed: {exc}", level="ERROR")
                 return False
+            
+            log(
+                f"LINE Notify failed after {max_retries} attempts",
+                level="ERROR"
+            )
         return False

@@ -24,7 +24,7 @@ class DataLogger:
         "position_id", "deal", "fill_price", "fill_volume", "fill_time",
         "slippage", "latency_ms", "execution_status",
         # TradeResult: complete lifecycle
-        "position_id", "exit_price", "exit_time", "exit_reason",
+        "exit_price", "exit_time", "exit_reason",
         "exit_bid", "exit_ask", "total_fees", "net_pnl",
         "duration_minutes", "risk_reward_ratio",
         "max_adverse_excursion", "max_favorable_excursion", "trade_status",
@@ -111,9 +111,10 @@ class DataLogger:
 
         row = {
             "position_id": execution.position_id,
+            "deal": execution.deal,
             "fill_price": execution.fill_price,
             "fill_volume": execution.fill_volume,
-            "fill_time": execution.fill_time,
+            "fill_time": execution.fill_time.isoformat() if execution.fill_time else None,
             "slippage": execution.slippage,
             "latency_ms": execution.latency_ms,
             "execution_status": execution.status,
@@ -126,7 +127,6 @@ class DataLogger:
         setup_id = result.setup_id
 
         row = {
-            "position_id": result.position_id,
             "exit_price": result.exit_price,
             "exit_time": result.exit_time.isoformat() if result.exit_time else None,
             "exit_reason": result.exit_reason,
@@ -166,8 +166,13 @@ class DataLogger:
             sid for sid, ts in self._row_timestamps.items()
             if (now - ts) >= timeout_seconds
         ]
+        orphan_ids = [
+            sid for sid in self._pending_rows
+            if sid not in self._row_timestamps
+        ]
+        flush_ids = stale_ids + orphan_ids 
  
-        for setup_id in stale_ids:
+        for setup_id in flush_ids:
             row = dict(self._pending_rows[setup_id])
             row.setdefault("trade_status", "CANCELLED")
             row.setdefault("exit_reason", f"No result received after {timeout_seconds:.0f}s")
@@ -175,10 +180,10 @@ class DataLogger:
             self._pending_rows.pop(setup_id, None)
             self._row_timestamps.pop(setup_id, None)
  
-        if stale_ids:
+        if flush_ids:
             self.trade_file.flush()
  
-        return len(stale_ids)
+        return len(flush_ids)
 
     def log_portfolio_stats(self, stats) -> None:
         """Log portfolio-level metrics for ML regime detection."""

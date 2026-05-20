@@ -20,12 +20,12 @@ class PositionStorage:
                     {
                         "ticket": int(pos.ticket),
                         "symbol": str(pos.symbol),
-                        "type": int(pos.type),  # 0=BUY, 1=SELL
+                        "type": int(pos.direction.code), 
                         "volume": float(pos.volume),
-                        "open_price": float(pos.price_open),
+                        "open_price": float(pos.open_price),
                         "magic": int(pos.magic),
                         "comment": str(pos.comment),
-                        "open_time": int(pos.time),
+                        "open_time": int(pos.time.timestamp()),
                     } for pos in positions
                 ],
                 "metadata": {

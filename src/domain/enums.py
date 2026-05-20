@@ -3,6 +3,10 @@ from enum import Enum
 class Direction(str, Enum):
     LONG    = "LONG"
     SHORT   = "SHORT"
+    
+    @property
+    def code(self) -> int:
+        return 1 if self == Direction.LONG else 0
 
 
 class OrderType(str, Enum):

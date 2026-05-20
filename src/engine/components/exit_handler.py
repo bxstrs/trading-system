@@ -34,10 +34,10 @@ def try_exit(
             position_id         = result.position_id,
             setup_id            = None,
             deal                = result.deal,
-            fill_price          = result.price,
+            fill_price          = result.fill_price,
             fill_volume         = result.fill_volume,
             fill_time           = result.fill_time,
-            slippage            = abs(result.price - exit_price),
+            slippage            = abs(result.fill_price - exit_price),
             latency_ms          = result.latency_ms,
             status              = result.status,
         )
@@ -51,6 +51,7 @@ def try_exit(
         # ── Build and log TradeResult ──────────────────────────────────────
         trade_result = TradeResult (
             position_id             = result.position_id,
+            setup_id                = meta.get('setup_id'),
             symbol                  = pos.symbol,
             volume                  = result.fill_volume,
             exit_price              = result.fill_price,
@@ -58,8 +59,8 @@ def try_exit(
             exit_reason             = "bollinger_exit",
             exit_bid                = snapshot.tick.bid,
             exit_ask                = snapshot.tick.ask,
-            total_fees              = deals.fee + deals.swap + deals.commission,
-            net_pnl                 = deals.profit if deals else 0.0,
+            total_fees              = sum(d.fee + d.swap + d.commission for d in deals) if deals else 0.0,
+            net_pnl                 = sum(d.profit for d in deals) if deals else 0.0,
             duration_minutes        = (result.fill_time - pos.time).total_seconds() / 60.0,
             risk_reward_ratio       = None,
             max_adverse_excursion   = meta.get('mae', 0.0),

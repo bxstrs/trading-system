@@ -26,6 +26,7 @@ class Position:
     profit:     float
     sl:         float | None
     tp:         float | None
+    comment:    str
     
 
 
@@ -80,6 +81,7 @@ class TradeResult:
     position_id:            str
     symbol:                 str
     volume:                 float
+    setup_id:               str | None      = None
     exit_price:             float | None    = None
     exit_time:              datetime | None = None
     exit_reason:            str | None      = None

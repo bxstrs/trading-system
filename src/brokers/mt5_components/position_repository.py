@@ -41,27 +41,36 @@ class PositionRepository:
                 sl          = raw_position.sl,
                 tp          = raw_position.tp,
                 open_price  = raw_position.price_open,
-                profit      = raw_position.profit
+                profit      = raw_position.profit,
+                comment     = raw_position.comment,
             )
             result.append(pos)
         return result
 
-    def history_deals_get(self, ticket) -> TradeHistory:
+    def history_deals_get(self, ticket) -> List[TradeHistory]:
 
         if not self.connection_manager.ensure_connected():
             raise ConnectionError("Not connected to MT5")
         
-        trade_history = mt5.history_deals_get(ticket=ticket)
+        histories = mt5.history_deals_get(ticket=ticket)
 
-        return TradeHistory(
-            ticket      = trade_history.ticket,
-            position_id = trade_history.position_id,
-            symbol      = trade_history.symbol,
-            timestamp   = datetime.fromtimestamp(trade_history.time, tz=timezone.utc),
-            volume      = trade_history.volume,
-            price       = trade_history.price,
-            commission  = trade_history.commission,
-            swap        = trade_history.swap,
-            profit      = trade_history.profit,
-            fee         = trade_history.fee,
-        )
+        if not histories:
+            return []
+        
+        result = []
+        for trade_history in histories:
+            history = TradeHistory(
+                ticket      = trade_history.ticket,
+                position_id = trade_history.position_id,
+                symbol      = trade_history.symbol,
+                timestamp   = datetime.fromtimestamp(trade_history.time, tz=timezone.utc),
+                volume      = trade_history.volume,
+                price       = trade_history.price,
+                commission  = trade_history.commission,
+                swap        = trade_history.swap,
+                profit      = trade_history.profit,
+                fee         = trade_history.fee,
+            )
+            result.append(history)
+        return result
+

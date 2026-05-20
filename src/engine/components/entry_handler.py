@@ -49,7 +49,6 @@ def try_entry(
     if not signal:
         return False 
     
-    direction_str = "BUY" if signal.direction.name == "LONG" else "SELL"
     direction_enum = Direction.LONG if signal.direction.name == "LONG" else Direction.SHORT
  
     log(f"[ENTRY] {signal.direction} at expected price: {signal.entry_price}", level="SIGNAL")
@@ -59,7 +58,9 @@ def try_entry(
     setup_id         = str(uuid.uuid4())
     indicators_value = _get_indicator_values(strategy)
 
-    if history is not None:
+    if history is None:
+        return False
+    else:
         setup_open  = history.open[-2]
         setup_high  = history.high[-2]
         setup_low   = history.low[-2]

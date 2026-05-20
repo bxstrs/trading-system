@@ -21,10 +21,10 @@ class DataLogger:
         "hour_of_day", "candle_open", "candle_high", "candle_low", "candle_close",
         "prev_trade_pnl", "adaptive_filter_active",
         # TradeExecution: order fill details
-        "execution_id", "filled_entry_price", "filled_volume", "entry_time",
-        "entry_slippage", "entry_latency_ms", "execution_status",
+        "position_id", "deal", "fill_price", "fill_volume", "fill_time",
+        "slippage", "latency_ms", "execution_status",
         # TradeResult: complete lifecycle
-        "trade_id", "exit_price", "exit_time", "exit_reason",
+        "position_id", "exit_price", "exit_time", "exit_reason",
         "exit_bid", "exit_ask", "total_fees", "net_pnl",
         "duration_minutes", "risk_reward_ratio",
         "max_adverse_excursion", "max_favorable_excursion", "trade_status",
@@ -110,12 +110,12 @@ class DataLogger:
         setup_id = execution.setup_id
 
         row = {
-            "execution_id": execution.execution_id,
-            "filled_entry_price": execution.filled_entry_price,
-            "filled_volume": execution.filled_volume,
-            "entry_time": execution.filled_time.isoformat() if execution.filled_time else None,
-            "entry_slippage": execution.slippage,
-            "entry_latency_ms": execution.latency_ms,
+            "position_id": execution.position_id,
+            "fill_price": execution.fill_price,
+            "fill_volume": execution.fill_volume,
+            "fill_time": execution.fill_time,
+            "slippage": execution.slippage,
+            "latency_ms": execution.latency_ms,
             "execution_status": execution.status,
         }
 
@@ -126,13 +126,13 @@ class DataLogger:
         setup_id = result.setup_id
 
         row = {
-            "trade_id": result.trade_id,
+            "position_id": result.position_id,
             "exit_price": result.exit_price,
             "exit_time": result.exit_time.isoformat() if result.exit_time else None,
             "exit_reason": result.exit_reason,
             "exit_bid": result.exit_bid,
             "exit_ask": result.exit_ask,
-            "total_fees": result.fees,
+            "total_fees": result.total_fees,
             "net_pnl": result.net_pnl,
             "duration_minutes": result.duration_minutes,
             "risk_reward_ratio": result.risk_reward_ratio,

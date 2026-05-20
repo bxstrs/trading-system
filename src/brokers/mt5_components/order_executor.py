@@ -121,7 +121,7 @@ class OrderExecutor:
 
         for attempt in range(1, max_retries + 1):
             try:
-                begin_time = datetime.now(timezone.utc).second
+                t0 = time.perf_counter()
                 result = mt5.order_send(request)
                 status = map_retcode(result.retcode)
 
@@ -136,7 +136,7 @@ class OrderExecutor:
                             fill_volume         = result.volume,
                             fill_time           = fill_time,
                             slippage            = abs(result.price - price),
-                            latency_ms          = (begin_time - fill_time.second) / 1000,
+                            latency_ms          = (time.perf_counter() - t0) * 1000,
                             status              = ExecutionStatus.DONE,
                     )
                 else:

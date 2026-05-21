@@ -5,9 +5,10 @@ import traceback
 
 from src.brokers.mt5                            import MT5Bridge
 from src.domain.exceptions                      import MarketDataUnavailable
+from src.engine.components.data_handler         import fetch_full_market_data, get_market_snapshot
 from src.engine.components.entry_handler        import try_entry
 from src.engine.components.exit_handler         import try_exit
-from src.engine.components.data_handler         import fetch_full_market_data, get_market_snapshot
+from src.engine.components.reconcile_handler    import check_manual_closes
 from src.engine.components.trading_config       import TradingConfig, load_trading_config
 from src.engine.components.warmup               import warmup_strategy
 from src.engine.components.position_manager     import PositionManager
@@ -83,8 +84,6 @@ def main_loop(strategy_name: str, notifier: LineNotifier) -> None:
             # ── Periodic checkpoint ───────────────────────────────────
             if ticks_since_checkpoint >= _trading_config.checkpoint_interval:
                 _save_checkpoint(position_manager, strategy)
-                for pos in position_manager.get_strategy_positions(strategy_id=strategy.strategy_id, symbol=_trading_config.symbol):
-                    position_manager._update_mae_mfe(snapshot.tick, pos)
                 ticks_since_checkpoint = 0
  
             # ── Market data refresh ───────────────────────────────────
@@ -100,6 +99,18 @@ def main_loop(strategy_name: str, notifier: LineNotifier) -> None:
             else:
                 snapshot = get_market_snapshot(bridge, _trading_config, False)
                 _heartbeat_logger(tick_counter, snapshot.tick, current_bar_time)
+            
+            # ── MAE/MFE update — every tick ──────────────────────────
+            for pos in position_manager.get_strategy_positions(
+                _trading_config.symbol, strategy.strategy_id
+            ):
+                position_manager._update_mae_mfe(snapshot.tick, pos)
+
+            # ── Manual-close detection ────────────────────────────────
+            check_manual_closes(
+                bridge, position_manager, risk_manager,
+                strategy, snapshot, datalogger, _trading_config,
+            )
 
             # ── Exit check ────────────────────────────────────────────
             try_exit(bridge, position_manager, risk_manager, strategy, snapshot, datalogger)

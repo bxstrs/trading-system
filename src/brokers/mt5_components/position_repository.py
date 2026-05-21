@@ -2,7 +2,7 @@
 import MetaTrader5 as mt5
 
 from typing import List
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from src.domain.enums import Direction
 from src.domain.trading import Position, TradeHistory
 from src.infrastructure.logger.logger import log
@@ -57,6 +57,38 @@ class PositionRepository:
         if not histories:
             return []
         
+        result = []
+        for trade_history in histories:
+            history = TradeHistory(
+                ticket      = trade_history.ticket,
+                position_id = trade_history.position_id,
+                symbol      = trade_history.symbol,
+                timestamp   = datetime.fromtimestamp(trade_history.time, tz=timezone.utc),
+                volume      = trade_history.volume,
+                price       = trade_history.price,
+                commission  = trade_history.commission,
+                swap        = trade_history.swap,
+                profit      = trade_history.profit,
+                fee         = trade_history.fee,
+            )
+            result.append(history)
+        return result
+    
+    def history_deals_get_by_position(self, position_id: int) -> List[TradeHistory]:
+
+        if not self.connection_manager.ensure_connected():
+            raise ConnectionError("Not connected to MT5")
+        
+        date_from = datetime(2000, 1, 1, tzinfo=timezone.utc)
+        date_to   = datetime.now(timezone.utc) + timedelta(days=1)
+
+        histories = mt5.history_deals_get(
+            date_from, date_to, position = position_id
+        )
+
+        if not histories:
+            return []
+
         result = []
         for trade_history in histories:
             history = TradeHistory(

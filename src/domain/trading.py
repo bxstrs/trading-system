@@ -66,9 +66,9 @@ class TradeSetup:
 @dataclass
 class TradeExecution:
     setup_id:               str | None
-    position_id:            str
-    order:                  str
-    deal:                   str
+    position_id:            int
+    order:                  int
+    deal:                   int
     fill_price:             float
     fill_volume:            float
     fill_time:              datetime | None
@@ -79,8 +79,8 @@ class TradeExecution:
 
 @dataclass
 class TradeResult:
-    position_id:            str
-    order:                  str
+    position_id:            int
+    order:                  int
     symbol:                 str
     volume:                 float
     setup_id:               str | None      = None

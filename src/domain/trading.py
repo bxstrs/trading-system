@@ -66,8 +66,9 @@ class TradeSetup:
 @dataclass
 class TradeExecution:
     setup_id:               str | None
-    position_id:            int
-    deal:                   int
+    position_id:            str
+    order:                  str
+    deal:                   str
     fill_price:             float
     fill_volume:            float
     fill_time:              datetime | None
@@ -79,6 +80,7 @@ class TradeExecution:
 @dataclass
 class TradeResult:
     position_id:            str
+    order:                  str
     symbol:                 str
     volume:                 float
     setup_id:               str | None      = None
@@ -103,7 +105,7 @@ class TradeResult:
         """Validate trade result."""
         if self.volume <= 0:
             raise ValueError("Volume must be positive")
-        if self.status == "CLOSED":
+        if self.status == TradeStatus.CLOSED:
             if self.exit_price is None or self.exit_time is None:
                 raise ValueError("Closed trades must have exit_price and exit_time")
             

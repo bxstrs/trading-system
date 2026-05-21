@@ -1,5 +1,5 @@
 '''src/engine/components/position_manager.py'''
-from typing import List, Tuple, Dict
+import ast
 from datetime import datetime
 
 from src.domain.enums import Direction
@@ -15,13 +15,13 @@ class PositionManager:
         self.bridge = bridge
         self.datalogger = datalogger or DataLogger()
 
-        self._position_metadata: Dict[Tuple[int, int], Dict] = {}
+        self._position_metadata: dict[tuple[int, int], dict] = {}
 
     # ------------------------------------------------------------------
     # Position Queries
     # ------------------------------------------------------------------
 
-    def get_strategy_positions(self, symbol: str, strategy_id: str) -> List[Position]:
+    def get_strategy_positions(self, symbol: str, strategy_id: str) -> list[Position]:
 
         positions = self.bridge.get_positions(symbol)
         if not positions:
@@ -49,9 +49,29 @@ class PositionManager:
         return dict(self._position_metadata)
     
 
-    def load_metadata(self, metadata: Dict[Tuple[int, int], Dict]) -> None:
+    def load_metadata(self, metadata: dict) -> None:
         """Restore metadata from checkpoint."""
-        self._position_metadata = {k: v for k, v in metadata.items()}
+        if not metadata:
+            self._position_metadata = {}
+            log("[RECOVERY] No metadata found in checkpoint", level="INFO")
+            return
+
+        restored = {}
+        for k, v in metadata.items():
+            try:
+                # reconstruct tuple key from string
+                restored_key = ast.literal_eval(k)
+
+                # ensure tuple format
+                if not isinstance(restored_key, tuple):
+                    raise ValueError(f"Invalid metadata key: {k}")
+
+                restored[restored_key] = v
+
+            except Exception as e:
+                log(f"[RECOVERY] Failed to restore metadata key {k}: {e}", level="ERROR")
+
+        self._position_metadata = restored
         log(f"[RECOVERY] Restored metadata for {len(self._position_metadata)} positions", level="INFO")
 
 
@@ -71,7 +91,6 @@ class PositionManager:
             log(f"[META] Creating placeholder for {key}", level="WARNING")
             self._position_metadata[key] = {
                 "setup_id":   None,
-                "execution_id": None,
                 "entry_price": pos.open_price,
                 "mae":        0.0,
                 "mfe":        0.0,
@@ -157,11 +176,11 @@ class PositionManager:
 
     # ── Private helpers ────────────────────────────────────────────────
 
-    def _get_position_key(self, pos) -> Tuple[int, int]:
+    def _get_position_key(self, pos) -> tuple[int, int]:
         t = pos.time
         return (int(pos.ticket), int(t.timestamp()) if hasattr(t, 'timestamp') else int(t))
 
-    def _build_position_key(self, ticket: int, open_time) -> Tuple[int, int]:
+    def _build_position_key(self, ticket: int, open_time) -> tuple[int, int]:
         if hasattr(open_time, 'timestamp'):
             open_time = int(open_time.timestamp())
         return (int(ticket), int(open_time))

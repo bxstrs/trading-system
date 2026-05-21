@@ -29,16 +29,15 @@ class PositionStorage:
                     } for pos in positions
                 ],
                 "metadata": {
-                    str(ticket): {
+                    str(k[0]): {
                         "setup_id": meta.get('setup_id'),
-                        "execution_id": meta.get('execution_id'),
                         "entry_slippage": meta.get('entry_slippage', 0.0),
                         "entry_latency_ms": meta.get('entry_latency_ms', 0.0),
                         "entry_price": meta.get('entry_price'),
                         "mae": meta.get('mae', 0.0),
                         "mfe": meta.get('mfe', 0.0),
                     }
-                    for ticket, meta in metadata.items()
+                    for k, meta in metadata.items()
                 }
                 
             }

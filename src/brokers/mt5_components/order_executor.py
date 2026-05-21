@@ -62,7 +62,8 @@ class OrderExecutor:
                     log(f"Order success (attempt {attempt}): {result}", level="INFO")
                     return TradeExecution(
                             setup_id            = setup.setup_id,
-                            position_id         = result.position_id,
+                            position_id         = result.request.position,
+                            order               = result.order,
                             deal                = result.deal,
                             fill_price          = result.price,
                             fill_volume         = result.volume,
@@ -82,7 +83,7 @@ class OrderExecutor:
                         time.sleep(backoff)
                     else:
                         log(f"Order failed after {max_retries} attempts", level="ERROR")
-                        return result
+                        return None
 
             except Exception as e:
                 log(f"Order send exception (attempt {attempt}): {e}", level="ERROR")
@@ -130,7 +131,8 @@ class OrderExecutor:
                     log(f"Order success (attempt {attempt}): {result}", level="INFO")
                     return TradeExecution(
                             setup_id            = None,
-                            position_id         = result.position_id,
+                            position_id         = result.request.position,
+                            order               = result.order,
                             deal                = result.deal,
                             fill_price          = result.price,
                             fill_volume         = result.volume,
@@ -150,7 +152,7 @@ class OrderExecutor:
                         time.sleep(backoff)
                     else:
                         log(f"Order failed after {max_retries} attempts", level="ERROR")
-                        return result
+                        return None
 
             except Exception as e:
                 log(f"Order send exception (attempt {attempt}): {e}", level="ERROR")

@@ -68,4 +68,4 @@ def get_market_snapshot(
             if attempt < config.max_fetch_attempts:
                 time.sleep(0.25)
 
-    raise MarketDataUnavailable (f"Unable to fetch market tick aftern {config.max_fetch_attempts} attempts") from last_error
+    raise MarketDataUnavailable (f"Unable to fetch market tick after {config.max_fetch_attempts} attempts") from last_error

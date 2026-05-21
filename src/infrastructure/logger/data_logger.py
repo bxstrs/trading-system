@@ -170,7 +170,7 @@ class DataLogger:
             sid for sid in self._pending_rows
             if sid not in self._row_timestamps
         ]
-        flush_ids = stale_ids + orphan_ids 
+        flush_ids = list(set(stale_ids + orphan_ids))
  
         for setup_id in flush_ids:
             row = dict(self._pending_rows[setup_id])

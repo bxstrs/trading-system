@@ -50,7 +50,6 @@ def try_entry(
         return False 
     
     direction_enum = Direction.LONG if signal.direction.name == "LONG" else Direction.SHORT
- 
     log(f"[ENTRY] {signal.direction} at expected price: {signal.entry_price}", level="INFO")
 
     # ── Resolve setup-bar OHLC (history[-2] = the bar that triggered the setup) ──
@@ -118,6 +117,7 @@ def try_entry(
     execution = TradeExecution(
         position_id         = result.position_id,
         setup_id            = setup_id,
+        order               = result.order,          
         deal                = result.deal,
         fill_price          = result.fill_price,
         fill_volume         = result.fill_volume,

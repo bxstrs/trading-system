@@ -143,13 +143,17 @@ class BBSqueeze(Strategy):
                     return None
     
             # ── Candle validity (reject wicks that cross the band) ───
-            valid_candle = not (
-                (prev_open > prev_upper and prev_close < prev_upper)
-                or (prev_open < prev_lower and prev_close > prev_lower)
+            valid_buy = (
+                prev_open < prev_upper and
+                prev_close > prev_upper
+            )
+            valid_sell = (
+                prev_open > prev_lower and
+                prev_close < prev_lower
             )
     
             # ── BUY signal ───────────────────────────────────────────
-            if prev_close > prev_upper and valid_candle:
+            if prev_close > prev_upper and valid_buy:
                 if tick.ask and tick.ask > prev_high + 0.1 * atr_value:
                     self._consumed_setup_bar = setup_bar_time
                     return Signal(
@@ -163,7 +167,7 @@ class BBSqueeze(Strategy):
                     )
     
             # ── SELL signal ──────────────────────────────────────────
-            if prev_close < prev_lower and valid_candle:
+            if prev_close < prev_lower and valid_sell:
                 if tick.bid and tick.bid < prev_low - 0.1 * atr_value:
                     self._consumed_setup_bar = setup_bar_time
                     return Signal(
@@ -187,16 +191,16 @@ class BBSqueeze(Strategy):
         Close a LONG when bid falls to/below the lower band.
         Close a SHORT when ask rises to/above the upper band.
         """
-        upper, lower, _ = self.indicators.get_bollinger_bands()
+        prev_upper, prev_lower, _ = self.indicators.get_previous_bollinger_bands()
  
-        if upper is None or lower is None:
+        if prev_upper is None or prev_lower is None:
             return False
  
         if pos.direction == Direction.LONG:
-            return snapshot.tick.bid <= lower
+            return snapshot.tick.bid <= prev_lower
  
         if pos.direction == Direction.SHORT:
-            return snapshot.tick.ask >= upper
+            return snapshot.tick.ask >= prev_upper
  
         return False
  

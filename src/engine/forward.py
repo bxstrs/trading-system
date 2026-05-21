@@ -83,6 +83,8 @@ def main_loop(strategy_name: str, notifier: LineNotifier) -> None:
             # ── Periodic checkpoint ───────────────────────────────────
             if ticks_since_checkpoint >= _trading_config.checkpoint_interval:
                 _save_checkpoint(position_manager, strategy)
+                for pos in position_manager.get_strategy_positions(strategy_id=strategy.strategy_id, symbol=_trading_config.symbol):
+                    position_manager._update_mae_mfe(snapshot.tick, pos)
                 ticks_since_checkpoint = 0
  
             # ── Market data refresh ───────────────────────────────────

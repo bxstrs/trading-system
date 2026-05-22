@@ -14,12 +14,13 @@ without touching the main loop orchestration.
 import uuid
 from datetime   import datetime, timezone
 
-from src.domain.enums                       import Direction, ExecutionStatus
-from src.domain.market_data                 import MarketSnapshot
-from src.domain.trading                     import TradeExecution, TradeSetup
-from src.engine.components.trading_config   import TradingConfig
-from src.infrastructure.logger.data_logger  import DataLogger
-from src.infrastructure.logger.logger       import log
+from src.domain.enums                           import Direction, ExecutionStatus
+from src.domain.market_data                     import MarketSnapshot
+from src.domain.trading                         import TradeExecution, TradeSetup
+from src.engine.components.trading_config       import TradingConfig
+from src.infrastructure.logger.data_logger      import DataLogger
+from src.infrastructure.logger.logger           import log
+from src.infrastructure.state.intant_storage    import IntentStore
  
  
 def try_entry(
@@ -31,6 +32,7 @@ def try_entry(
     spread: float,
     datalogger: DataLogger,
     config: TradingConfig,
+    intent_store: IntentStore
 ) -> bool:
 
     # ── Pre-entry guards ──────────────────────────────────────────────
@@ -92,6 +94,16 @@ def try_entry(
             adaptive_filter_active  = indicators_value.get("adaptive_filter_active", False),
         )
         datalogger.log_trade_setup(setup)
+
+    # ── WRITE INTENT BEFORE TOUCHING BROKER (crash safety) ───────────
+    # If we crash between here and track_entry_position(), the PENDING intent will be found on restart and resolved against live positions.
+    if not intent_store.write_pending(setup_id, setup):
+        log(
+            "[ENTRY] Could not write intent record — aborting entry to prevent "
+            "untracked position on crash",
+            level="ERROR",
+        )
+        return False
  
     # ── Submit order ──────────────────────────────────────────────────
     result = bridge.send_order(
@@ -102,16 +114,21 @@ def try_entry(
     )
  
     if result is None:
+        intent_store.mark_abandoned(setup_id, reason="no response from MT5")
         log("Order failed: no response from MT5", level="ERROR")
         return False
  
     if result.status != ExecutionStatus.DONE:
+        reason = f"retcode={result.status}, comment={getattr(result, 'comment', 'N/A')}"
+        intent_store.mark_abandoned(setup_id, reason=reason)
         log(
-            f"Order failed: retcode={result.status}, "
-            f"comment={getattr(result, 'comment', 'N/A')}",
+            f"Order failed: retcode={result.status}, comment={getattr(result, 'comment', 'N/A')}",
             level="ERROR",
         )
         return False
+    
+    # ── Mark intent FILLED (idempotent — safe if called again on retry) ──
+    intent_store.mark_filled(setup_id, position_id=result.position_id)
  
     # ── Log execution and register position ───────────────────────────
     execution = TradeExecution(
@@ -135,6 +152,86 @@ def try_entry(
         entry_latency_ms    = execution.latency_ms,
     )
     return True
+
+def resolve_pending_intents(
+    intent_store:     IntentStore,
+    bridge,
+    position_manager,
+    config,
+    strategy,
+) -> None:
+    """
+    Called ONCE at startup, BEFORE warmup, AFTER load_positions().
+ 
+    Resolves PENDING intents left by a crash in the window between
+    order_send() and track_entry_position().
+ 
+    Two cases:
+      A) MT5 has a matching position → fill succeeded, register metadata.
+      B) No matching MT5 position    → fill never happened, mark abandoned.
+    """
+    
+    pending = intent_store.get_pending_intents()
+    if not pending:
+        return
+ 
+    log(
+        f"[INTENT] {len(pending)} PENDING intent(s) found — resolving before warmup",
+        level="WARNING",
+    )
+ 
+    try:
+        live_positions = bridge.get_positions(config.symbol)
+    except Exception as exc:
+        log(f"[INTENT] Cannot fetch positions for intent resolution: {exc}", level="ERROR")
+        return
+ 
+    # Build lookup: tickets that are already tracked (restored from checkpoint)
+    already_tracked = set(position_manager._position_metadata.keys())
+ 
+    for intent in pending:
+        intent_id = intent["intent_id"]
+        setup_id  = intent.get("setup_id", intent_id)
+ 
+        log(f"[INTENT] Resolving intent={intent_id} setup={setup_id}", level="WARNING")
+ 
+        # Find a live position with our magic number that has no metadata yet
+        matched = None
+        for pos in live_positions:
+            if (
+                pos.magic == strategy.magic_number
+                and int(pos.ticket) not in already_tracked
+            ):
+                matched = pos
+                break
+ 
+        if matched is not None:
+            log(
+                f"[INTENT] Case A: fill confirmed → ticket={matched.ticket}. "
+                f"Registering metadata.",
+                level="WARNING",
+            )
+            intent_store.mark_filled(intent_id, position_id=matched.ticket)
+            position_manager.track_entry_position(
+                setup_id         = setup_id,
+                position_ticket  = matched.ticket,
+                entry_slippage   = 0.0,           # unknown after crash
+                entry_latency_ms = 0.0,           # unknown after crash
+                entry_fill_price = matched.open_price,
+                entry_fill_time  = matched.time,
+            )
+            already_tracked.add(int(matched.ticket))
+            log(f"[INTENT] Recovered position ticket={matched.ticket}", level="INFO")
+        else:
+            log(
+                f"[INTENT] Case B: no matching live position for intent={intent_id} "
+                f"— order never filled, marking ABANDONED",
+                level="WARNING",
+            )
+            intent_store.mark_abandoned(
+                intent_id,
+                reason="no matching live position found on startup recovery",
+            )
  
  
 # ── Private helpers ───────────────────────────────────────────────────────────

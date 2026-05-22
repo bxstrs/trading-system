@@ -6,7 +6,7 @@ import traceback
 from src.brokers.mt5                            import MT5Bridge
 from src.domain.exceptions                      import MarketDataUnavailable
 from src.engine.components.data_handler         import fetch_full_market_data, get_market_snapshot
-from src.engine.components.entry_handler        import try_entry
+from src.engine.components.entry_handler        import try_entry, resolve_pending_intents
 from src.engine.components.exit_handler         import try_exit
 from src.engine.components.reconcile_handler    import check_manual_closes
 from src.engine.components.trading_config       import TradingConfig, load_trading_config
@@ -18,6 +18,7 @@ from src.infrastructure.logger.data_logger      import DataLogger
 from src.infrastructure.logger.logger           import log
 from src.infrastructure.notifier.line_notifier  import LineNotifier
 from src.infrastructure.state.position_storage  import PositionStorage
+from src.infrastructure.state.intant_storage    import IntentStore
  
  
 # ── Module-level singletons (config is frozen, position_storage is stateless) ───
@@ -55,6 +56,7 @@ def main_loop(strategy_name: str, notifier: LineNotifier) -> None:
  
     strategy            = load_strategy(strategy_name)
     datalogger          = DataLogger(strategy_id=strategy.strategy_id, symbol=_trading_config.symbol)
+    intent_storage      = IntentStore()
     position_manager    = PositionManager(bridge, datalogger=datalogger)
     risk_manager        = RiskManager()
     
@@ -62,6 +64,7 @@ def main_loop(strategy_name: str, notifier: LineNotifier) -> None:
 
     log(f"Loaded strategy: {strategy.strategy_id}")
     _run_recovery(bridge, position_manager, strategy)
+    resolve_pending_intents(intent_storage, bridge, position_manager, _trading_config, strategy)
     warmup_strategy(strategy, history)
  
     # ── Loop state ────────────────────────────────────────────────────
@@ -138,6 +141,7 @@ def main_loop(strategy_name: str, notifier: LineNotifier) -> None:
                     spread,
                     datalogger, 
                     _trading_config,
+                    intent_storage,
                 )
 
             if executed:

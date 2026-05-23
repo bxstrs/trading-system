@@ -10,7 +10,13 @@ class PositionStorage:
         self.checkpoint_dir = checkpoint_dir
         os.makedirs(checkpoint_dir, exist_ok=True)
     
-    def save_positions(self, positions, metadata, strategy_id):
+    def save_positions(
+            self, 
+            positions: list, 
+            metadata: dict,
+            strategy_id: str, 
+            risk_state: dict | None = None, 
+        ):
         """Save open positions to disk for recovery after crash"""
         try:
             checkpoint = {
@@ -28,18 +34,11 @@ class PositionStorage:
                         "open_time": int(pos.time.timestamp()),
                     } for pos in positions
                 ],
-                "metadata": {
-                    str(k): {
-                        "setup_id": meta.get('setup_id'),
-                        "entry_slippage": meta.get('entry_slippage', 0.0),
-                        "entry_latency_ms": meta.get('entry_latency_ms', 0.0),
-                        "entry_price": meta.get('entry_price'),
-                        "mae": meta.get('mae', 0.0),
-                        "mfe": meta.get('mfe', 0.0),
-                    }
-                    for k, meta in metadata.items()
-                }
-                
+                "metadata": metadata,
+                "risk_state": risk_state or {
+                    "consecutive_losses": 0,
+                    "trading_halted":     False,
+                },
             }
             
             path = os.path.join(self.checkpoint_dir, f"{strategy_id}_positions.json")
@@ -59,20 +58,34 @@ class PositionStorage:
             return False
     
     def load_positions(self, strategy_id):
-        """Load positions from last checkpoint"""
-        try:
-            path = f"{self.checkpoint_dir}/{strategy_id}_positions.json"
-            if not os.path.exists(path):
-                return None
-            
-            with open(path, 'r') as f:
-                checkpoint = json.load(f)
-            
-            log(f"[STATE] Loaded checkpoint from {checkpoint['timestamp']}", level="INFO")
-            return checkpoint
-        except Exception as e:
-            log(f"[ERROR] Failed to load checkpoint: {e}", level="ERROR")
+        """Load checkpoint from disk. Returns None if no checkpoint exists."""
+        path = os.path.join(self.checkpoint_dir, f"{strategy_id}_positions.json")
+        if not os.path.exists(path):
             return None
+        try:
+            with open(path, "r") as f:
+                checkpoint = json.load(f)
+            log(
+                f"[STATE] Loaded checkpoint from {checkpoint.get('timestamp', 'unknown')}",
+                level="INFO",
+            )
+            return checkpoint
+        except Exception as exc:
+            log(f"[STATE] Failed to load checkpoint: {exc}", level="ERROR")
+            return None
+        
+    def load_risk_state(self, strategy_id: str) -> dict:
+        """
+        Convenience: load only the risk_state from the checkpoint.
+        Returns a safe default dict if no checkpoint or no risk_state key.
+        """
+        checkpoint = self.load_positions(strategy_id)
+        if checkpoint is None:
+            return {"consecutive_losses": 0, "trading_halted": False}
+        return checkpoint.get(
+            "risk_state",
+            {"consecutive_losses": 0, "trading_halted": False},
+        )
     
     def check_positions(self, mt5_positions, checkpoint_data):
         if not checkpoint_data or not checkpoint_data.get("positions"):

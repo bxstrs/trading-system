@@ -20,7 +20,7 @@ from src.domain.trading                         import TradeExecution, TradeSetu
 from src.engine.components.trading_config       import TradingConfig
 from src.infrastructure.logger.data_logger      import DataLogger
 from src.infrastructure.logger.logger           import log
-from src.infrastructure.state.intant_storage    import IntentStore
+from src.infrastructure.state.intent_storage    import IntentStore
  
  
 def try_entry(

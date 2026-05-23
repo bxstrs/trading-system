@@ -38,9 +38,6 @@ class PositionManager:
     def has_open_position(self, symbol: str, strategy_id: str) -> bool:
         return len(self.get_strategy_positions(symbol, strategy_id)) > 0
 
-    def export_metadata(self) -> dict:
-        return dict(self._position_metadata)
-
     def load_metadata(self, metadata: dict) -> None:
         if not metadata:
             self._position_metadata = {}
@@ -186,7 +183,6 @@ class PositionManager:
                     dt = datetime.fromisoformat(eft)
                     if dt.tzinfo is None:
                         dt = dt.replace(tzinfo=timezone.utc)
-                        
                     entry["entry_fill_time"] = datetime.fromisoformat(str(dt))
                 except ValueError:
                     entry["entry_fill_time"] = None

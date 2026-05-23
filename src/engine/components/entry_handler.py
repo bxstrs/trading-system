@@ -54,46 +54,49 @@ def try_entry(
     direction_enum = Direction.LONG if signal.direction.name == "LONG" else Direction.SHORT
     log(f"[ENTRY] {signal.direction} at expected price: {signal.entry_price}", level="INFO")
 
-    # ── Resolve setup-bar OHLC (history[-2] = the bar that triggered the setup) ──
     history          = snapshot.history
-    setup_id         = str(uuid.uuid4())
-    indicators_value = _get_indicator_values(strategy)
-
     if history is None:
+        log("[ENTRY] Signal generated but snapshot has no history — cannot build setup", level="ERROR")
         return False
-    else:
-        setup_open  = history.open[-2]
-        setup_high  = history.high[-2]
-        setup_low   = history.low[-2]
-        setup_close = history.close[-2]
-        setup_timestamp = datetime.fromtimestamp(history.time_unix[-2], tz=timezone.utc)
- 
-    # ── Build and log TradeSetup ──────────────────────────────────────
-        setup = TradeSetup(
-            setup_id                = setup_id,
-            strategy_id             = strategy.strategy_id,
-            symbol                  = config.symbol,
-            timestamp               = setup_timestamp,
-            direction               = direction_enum,
-            trigger_price           = signal.entry_price,
-            bb_upper                = indicators_value.get("bb_upper", 0.0),
-            bb_lower                = indicators_value.get("bb_lower", 0.0),
-            bb_middle               = indicators_value.get("bb_middle", 0.0),
-            bandwidth               = indicators_value.get("bandwidth", 0.0),
-            bandwidth_ma            = indicators_value.get("bandwidth_ma", 0.0),
-            atr                     = indicators_value.get("atr", 0.0),
-            spread                  = spread,
-            intended_entry_price    = signal.entry_price,
-            intended_volume         = config.base_volume,
-            hour_of_day             = setup_timestamp.hour,
-            candle_open             = setup_open,
-            candle_high             = setup_high,
-            candle_low              = setup_low,
-            candle_close            = setup_close,
-            prev_trade_pnl          = None,
-            adaptive_filter_active  = indicators_value.get("adaptive_filter_active", False),
+    if len(history.close) < 3 or len(history.time_unix) < 3:
+        log(
+            f"[ENTRY] Insufficient history: {len(history.close)} bars "
+            f"(need >= 3 to safely access setup bar [-2])",
+            level="WARNING",
         )
-        datalogger.log_trade_setup(setup)
+        return False
+    
+    # ── Build TradeSetup ──────────────────────────────────────────────
+    setup_id         = str(uuid.uuid4())
+    indicators = _get_indicator_values(strategy)
+    setup_timestamp = datetime.fromtimestamp(history.time_unix[-2], tz=timezone.utc)
+
+    # ── Build and log TradeSetup ──────────────────────────────────────
+    setup = TradeSetup(
+        setup_id               = setup_id,
+        strategy_id            = strategy.strategy_id,
+        symbol                 = config.symbol,
+        timestamp              = setup_timestamp,
+        direction              = direction_enum,
+        trigger_price          = signal.entry_price,
+        bb_upper               = indicators.get("bb_upper",   0.0),
+        bb_lower               = indicators.get("bb_lower",   0.0),
+        bb_middle              = indicators.get("bb_middle",  0.0),
+        bandwidth              = indicators.get("bandwidth",  0.0),
+        bandwidth_ma           = indicators.get("bandwidth_ma", 0.0),
+        atr                    = indicators.get("atr",        0.0),
+        spread                 = spread,
+        intended_entry_price   = signal.entry_price,
+        intended_volume        = config.base_volume,
+        hour_of_day            = setup_timestamp.hour,
+        candle_open            = history.open[-2],   # safe: len >= 3 checked above
+        candle_high            = history.high[-2],
+        candle_low             = history.low[-2],
+        candle_close           = history.close[-2],
+        prev_trade_pnl         = None,
+        adaptive_filter_active = indicators.get("adaptive_filter_active", False),
+    )
+    datalogger.log_trade_setup(setup)
 
     # ── WRITE INTENT BEFORE TOUCHING BROKER (crash safety) ───────────
     # If we crash between here and track_entry_position(), the PENDING intent will be found on restart and resolved against live positions.
@@ -104,7 +107,25 @@ def try_entry(
             level="ERROR",
         )
         return False
- 
+    
+    max_spread = getattr(strategy.config, "max_spread", None)
+    if max_spread is not None:
+        try:
+            pre_send_spread = bridge.get_spread(config.symbol)
+            if pre_send_spread > max_spread:
+                intent_store.mark_abandoned(
+                    setup_id,
+                    reason=f"spread widened before send: {pre_send_spread:.1f} > max {max_spread:.1f}",
+                )
+                log(
+                    f"[ENTRY] Aborting — spread widened from {spread:.1f} to "
+                    f"{pre_send_spread:.1f} (max {max_spread:.1f}) between signal and send",
+                    level="WARNING",
+                )
+                return False
+        except Exception as exc:
+            log(f"[ENTRY] Pre-send spread check failed: {exc} — proceeding", level="WARNING")\
+            
     # ── Submit order ──────────────────────────────────────────────────
     result = bridge.send_order(
         setup       = setup,
@@ -146,12 +167,12 @@ def try_entry(
     datalogger.log_trade_execution(execution)
  
     position_manager.track_entry_position(
-        setup_id            = setup_id,
-        position_ticket     = result.position_id,
-        entry_slippage      = execution.slippage,
-        entry_latency_ms    = execution.latency_ms,
-        entry_fill_price    = execution.fill_price,
-        entry_fill_time     = execution.fill_time,
+        setup_id         = setup_id,
+        position_ticket  = result.position_id,
+        entry_slippage   = execution.slippage,
+        entry_latency_ms = execution.latency_ms,
+        entry_fill_price = result.fill_price,
+        entry_fill_time  = result.fill_time,
     )
     return True
 
@@ -162,16 +183,6 @@ def resolve_pending_intents(
     config,
     strategy,
 ) -> None:
-    """
-    Called ONCE at startup, BEFORE warmup, AFTER load_positions().
- 
-    Resolves PENDING intents left by a crash in the window between
-    order_send() and track_entry_position().
- 
-    Two cases:
-      A) MT5 has a matching position → fill succeeded, register metadata.
-      B) No matching MT5 position    → fill never happened, mark abandoned.
-    """
 
     pending = intent_store.get_pending_intents()
     if not pending:

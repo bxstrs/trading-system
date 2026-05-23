@@ -18,25 +18,24 @@ class PositionManager:
     # Position Queries
     # ------------------------------------------------------------------
 
-    def get_strategy_positions(self, symbol: str, strategy_id: str) -> list[Position]:
+    def get_strategy_positions(self, symbol: str, magic_number: int) -> list[Position]:
         positions = self.bridge.get_positions(symbol)
         if not positions:
             return []
 
-        result = []
-        for pos in positions:
-            if pos.comment != str(strategy_id):
-                continue
-            result.append(pos)
-
+        result = [
+            pos for pos in positions
+            if pos.magic == magic_number        # Bug #9 fix: was pos.comment == str(strategy_id)
+        ]
+ 
         log(
-            f"[POSITION] {len(result)} position(s) matched strategy_id='{strategy_id}'",
+            f"[POSITION] {len(result)} position(s) matched magic={magic_number}",
             level="DEBUG",
         )
         return result
 
-    def has_open_position(self, symbol: str, strategy_id: str) -> bool:
-        return len(self.get_strategy_positions(symbol, strategy_id)) > 0
+    def has_open_position(self, symbol: str, magic_number: int) -> bool:
+        return len(self.get_strategy_positions(symbol, magic_number)) > 0
 
     def load_metadata(self, metadata: dict) -> None:
         if not metadata:

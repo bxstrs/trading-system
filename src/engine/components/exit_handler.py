@@ -13,7 +13,7 @@ def try_exit(
         datalogger: DataLogger,
 ) -> bool:
 
-    positions = position_manager.get_strategy_positions(snapshot.tick.symbol, strategy.strategy_id)
+    positions = position_manager.get_strategy_positions(snapshot.tick.symbol, strategy.magic_number)
     executed = False
 
     for pos in positions:

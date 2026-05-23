@@ -36,7 +36,7 @@ def check_manual_closes(
     live_tickets = {
         int(p.ticket)
         for p in live_positions
-        if p.comment == str(strategy.strategy_id)
+        if p.magic == strategy.magic_number
     }
 
     # Tickets tracked in metadata

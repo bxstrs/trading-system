@@ -20,7 +20,7 @@ class MarketDataFetcher:
         if not self.connector.ensure_connected():
             raise ConnectionError("Not connected to MT5")
 
-        rates = mt5.copy_rates_from_pos(symbol, timeframe, 0, n)
+        rates = mt5.copy_rates_from_pos(symbol, timeframe, 1, n)
 
         if rates is None:
             raise RateFetchError(f"Failed to fetch rates for {symbol} on timeframe {timeframe}")

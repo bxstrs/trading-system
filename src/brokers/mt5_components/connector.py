@@ -40,6 +40,34 @@ class ConnectionManager:
 
                 if self.connected:
                     log(f"MT5 connected successfully on attempt {attempt + 1}", level="INFO")
+                    
+                    # Log account safety and details
+                    account = mt5.account_info()
+                    if account:
+                        trade_mode = getattr(account, "trade_mode", None)
+                        mode_str = "UNKNOWN"
+                        is_real_money = False
+                        
+                        if trade_mode == getattr(mt5, "ACCOUNT_TRADE_MODE_REAL", 2):
+                            mode_str = "REAL (LIVE MONEY) ⚠️"
+                            is_real_money = True
+                        elif trade_mode == getattr(mt5, "ACCOUNT_TRADE_MODE_DEMO", 0):
+                            mode_str = "DEMO/PAPER (PLAY MONEY) ✅"
+                        elif trade_mode == getattr(mt5, "ACCOUNT_TRADE_MODE_CONTEST", 1):
+                            mode_str = "CONTEST ✅"
+                            
+                        log(
+                            f"Account Info: Login={account.login} | Server={account.server} | "
+                            f"Mode={mode_str} | Balance={account.balance} {account.currency}",
+                            level="INFO"
+                        )
+                        
+                        if is_real_money:
+                            log(
+                                "⚠️ DANGER: You are connected to a LIVE REAL MONEY account! "
+                                "Verify this is intentional before continuing.",
+                                level="WARNING"
+                            )
                     return True
             except Exception as e:
                 last_exception = e

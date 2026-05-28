@@ -80,7 +80,10 @@ class PositionRepository:
         if not self.connection_manager.ensure_connected():
             raise ConnectionError("Not connected to MT5")
 
-        histories = mt5.history_deals_get(position=position_id)   # no date range needed
+        # MT5 requires a date range when using position= filter, otherwise it defaults to a short recent period.
+        date_from = datetime(2020, 1, 1, tzinfo=timezone.utc)
+        date_to = datetime.now(timezone.utc) + timedelta(days=1)
+        histories = mt5.history_deals_get(date_from, date_to, position=position_id)
 
         if not histories:
             return []

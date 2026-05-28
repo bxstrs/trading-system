@@ -228,7 +228,7 @@ def main_loop(strategy_name: str, notifier: LineNotifier) -> None:
         if 'position_manager' in dir() and 'risk_manager' in dir() and 'strategy' in dir():
             _save_checkpoint(position_manager, risk_manager, strategy)
         if 'datalogger' in dir():
-            datalogger.close(clean_exit=not _should_exit)
+            datalogger.close(clean_exit=_should_exit)
         bridge.shutdown()
         if 'loop_start' in dir() and 'tick_counter' in dir():
             elapsed = time.time() - loop_start

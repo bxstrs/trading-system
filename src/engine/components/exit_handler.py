@@ -1,3 +1,4 @@
+import time
 from src.domain.enums import TradeStatus
 from src.domain.market_data import MarketSnapshot
 from src.domain.trading import TradeResult, TradeExecution
@@ -58,11 +59,18 @@ def try_exit(
             datalogger.log_exit_execution(execution)
 
             # ── Fetch deal history for accurate PnL ──────────────────────
-            try:
-                deals = bridge.history_deals_get_by_position(pos.ticket)
-            except Exception as exc:
-                log(f"[EXIT] Failed to fetch deals for ticket={pos.ticket}: {exc}", level="ERROR")
-                deals = []
+            deals = []
+            for attempt in range(5):
+                try:
+                    deals = bridge.history_deals_get_by_position(pos.ticket)
+                    if deals:
+                        break
+                except Exception as exc:
+                    log(f"[EXIT] Failed to fetch deals for ticket={pos.ticket} (attempt {attempt+1}): {exc}", level="WARNING")
+                time.sleep(0.1)  # 100ms sync delay
+            
+            if not deals:
+                log(f"[EXIT] No deal history returned after 5 attempts for ticket={pos.ticket} — PnL and fees will default to 0.0", level="ERROR")
 
             entry_fill_time = meta.get("entry_fill_time")
             duration_minutes = None

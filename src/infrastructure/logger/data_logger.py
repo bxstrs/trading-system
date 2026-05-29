@@ -166,10 +166,22 @@ class DataLogger:
             "risk_reward_ratio":        result.risk_reward_ratio,
             "max_adverse_excursion":    result.max_adverse_excursion,
             "max_favorable_excursion":  result.max_favorable_excursion,
-            "trade_status":             result.status,
+            "trade_status":             result.status.name if hasattr(result.status, "name") else result.status,
         }
 
-        complete_row = {**self._pending_rows.get(setup_id, {}), **row}
+        cached_row = self._pending_rows.get(setup_id, {})
+        if not cached_row:
+            # Fallback for key identifying fields if memory cache was cleared on restart
+            cached_row = {
+                "setup_id":          setup_id,
+                "symbol":            result.symbol or self.symbol,
+                "position_id":       result.position_id,
+                "strategy_id":       self.strategy_id,
+                "entry_fill_volume": result.volume,
+                "exit_fill_volume":  result.volume,
+            }
+
+        complete_row = {**cached_row, **row}
 
         self.trade_writer.writerow(complete_row)
         self.trade_file.flush()
@@ -201,6 +213,7 @@ class DataLogger:
 
         for setup_id in flush_ids:
             row = dict(self._pending_rows[setup_id])
+            row.setdefault("setup_id", setup_id)
             row.setdefault("trade_status", "CANCELLED")
             row.setdefault("exit_reason", f"No result after {timeout_seconds:.0f}s")
             self.trade_writer.writerow(row)
@@ -291,6 +304,7 @@ class DataLogger:
 
         for setup_id in evict_ids:
             row = dict(self._pending_rows[setup_id])
+            row.setdefault("setup_id", setup_id)
             row.setdefault("trade_status", "CANCELLED")
             row.setdefault("exit_reason", "evicted: pending cache overflow")
             self.trade_writer.writerow(row)

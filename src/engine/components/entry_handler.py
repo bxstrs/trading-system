@@ -139,7 +139,7 @@ def try_entry(
         log("Order failed: no response from MT5", level="ERROR")
         return False
  
-    if result.status != ExecutionStatus.DONE:
+    if result.status not in (ExecutionStatus.DONE, ExecutionStatus.PARTIAL):
         reason = f"retcode={result.status}, comment={getattr(result, 'comment', 'N/A')}"
         intent_store.mark_abandoned(setup_id, reason=reason)
         log(

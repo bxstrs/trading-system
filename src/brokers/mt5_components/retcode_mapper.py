@@ -14,11 +14,13 @@ def map_retcode(retcode: int) -> ExecutionStatus:
 
 
 DEAL_REASON_MAP = {
-    0: "manual_close",  # Client manual close
-    1: "expert",        # Expert Advisor
-    2: "sl_hit",        # Stop Loss
-    3: "tp_hit",        # Take Profit
-    4: "stop_out",      # Stop Out
+    0: "manual_close",  # DEAL_REASON_CLIENT
+    1: "manual_close",  # DEAL_REASON_MOBILE
+    2: "manual_close",  # DEAL_REASON_WEB
+    3: "expert",        # DEAL_REASON_EXPERT
+    4: "sl_hit",        # DEAL_REASON_SL
+    5: "tp_hit",        # DEAL_REASON_TP
+    6: "stop_out",      # DEAL_REASON_SO
 }
 
 

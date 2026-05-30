@@ -187,7 +187,7 @@ class PositionManager:
                     dt = datetime.fromisoformat(eft)
                     if dt.tzinfo is None:
                         dt = dt.replace(tzinfo=timezone.utc)
-                    entry["entry_fill_time"] = datetime.fromisoformat(str(dt))
+                    entry["entry_fill_time"] = dt
                 except ValueError:
                     entry["entry_fill_time"] = None
             try:
